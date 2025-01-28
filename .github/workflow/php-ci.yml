@@ -1,0 +1,57 @@
+name: PHP CI Pipeline
+
+# 워크플로 트리거 설정
+on:
+  push:
+    branches:
+      - main # main 브랜치에 푸시될 때 실행
+  pull_request:
+    branches:
+      - main # PR 생성 시 main 브랜치에 대하여 실행
+
+jobs:
+  build:
+    # CI 빌드 환경 (우분투 OS 사용)
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. 리포지토리 코드 체크아웃
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # 2. PHP 환경 설정 및 Composer 설치
+    - name: Set up PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: 8.1 # PHP 버전 (필요에 맞게 변경 가능)
+        tools: composer # Composer 기본 설치 포함
+
+    # 3. 의존성 캐싱
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: vendor
+        key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-composer-
+
+    # 4. PSR-12 스타일 검사
+    - name: Run PHP Code Sniffer
+      run: vendor/bin/phpcs --standard=PSR12 src/
+
+    # 5. 의존성 설치
+    - name: Install Dependencies
+      run: composer install --no-suggest --no-progress
+
+    # 6. PHPUnit 테스트 실행 및 JUnit 보고서 저장
+    - name: Run PHPUnit Tests
+      run: |
+        mkdir -p test-reports
+        vendor/bin/phpunit --log-junit test-reports/phpunit.xml
+
+    # 7. PHPUnit 테스트 결과물 업로드
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v3
+      with:
+        name: phpunit-test-results
+        path: test-reports/phpunit.xml
